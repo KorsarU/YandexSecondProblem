@@ -17,6 +17,7 @@ namespace YandexContest
         static void Main(string[] args)
         {
             Query.SetConnection();
+            Console.OutputEncoding = Encoding.UTF8;
             var path = "./Data.txt";
             if (args.Length == 1) path = "./"+args[0];
             var readResult = ReadDataFile(path);
@@ -54,8 +55,8 @@ namespace YandexContest
             PrintResult(Demo("Demo 4: Select from past and current month distinct from product table:", @"
                             SELECT product.name AS 'продукт',
                                 CASE
-	                                WHEN o.dt >= date('now','start of month') THEN 'current'
-	                                WHEN o.dt < date('now','start of month') THEN 'past'
+	                                WHEN o.dt >= date('now','start of month') THEN strftime('[%Y-%m]','now')
+	                                WHEN o.dt < date('now','start of month') THEN strftime('[%Y-%m]','now', 'start of month', '-2 day')
                                 END 'месяц'
                                 FROM product JOIN 
                                 (SELECT o1.product_id, o1.dt FROM 'order' AS o1
@@ -82,7 +83,27 @@ namespace YandexContest
                                 ) as o on product.id = o.product_id
                                 group by product.name
                                 "));
-            PrintResult(Demo("Demo 5: Select from product table:", "select * from product"));
+            PrintResult(Demo("Demo 5: Select from product table:", @"
+                                select od.'m' as 'период', p.name as 'продукт', printf('%.2f',od.sa) as 'сумма', printf('%.0f', od.'d'*100) as 'доля'
+                                from 
+	                                (
+		                                select o.'m', o.'p', max(o.'a') as sa, (o.'d')*1.0/(d.'dd')  as 'd'
+		                                FROM (
+				                                SELECT strftime('%Y-%m',dt) as 'm', product_id as 'p', sum(amount) as 'a', count(product_id) as 'd'
+				                                FROM 'order'
+				                                group by strftime('%Y-%m',dt), product_id
+			                                 ) as o , 
+			                                 (
+			 	                                SELECT strftime('%Y-%m',dt) as 'm', count(product_id) as 'dd'
+			 	                                FROM 'order'
+			 	                                GROUP BY strftime('%Y-%m', dt)
+			                                 ) as d
+			                                 group by o.'m'
+	                                ) AS od 
+                                JOIN 
+                                product p 
+                                ON od.'p' = p.id
+                                order by od.'m'"));
 
         }
 

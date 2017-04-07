@@ -16,12 +16,80 @@ namespace YandexContest
     {
         static void Main(string[] args)
         {
+            Query.SetConnection();
             var path = "./Data.txt";
             if (args.Length == 1) path = "./"+args[0];
             var readResult = ReadDataFile(path);
             if(readResult!=null)
             LoadDataSet(readResult);
+            DemoRun();
             //RunCommandInterface();
+            Console.ReadKey();
+        }
+
+
+
+        private static void DemoRun()
+        {
+            PrintResult(Demo("Demo 1: Select from product table:", "select * from product"));
+            PrintResult(Demo("Demo 2: Select NAME, COUNT AND SUM from order table:",
+                @"Select product.name as 'продукт', count('order'.product_id) as 'количество', sum(amount) as 'сумма' 
+                    from product join 'order' on product.id = 'order'.product_id
+                    where 'order'.dt >= date('now','start of month')
+                    group by 'order'.product_id"));
+            PrintResult(Demo("Demo 3: Select ALL PRODUCTS WHICH WAS ORDERED EXACTLY IN CURRENT MONTH from product table:",
+                @"SELECT product.name AS 'продукт', COUNT(o.product_id) AS 'количество', SUM(o.amount) AS 'сумма' 
+                    FROM product JOIN 
+                        (SELECT * FROM 'order' AS o
+					    WHERE o.dt >= DATE('now', 'start of month') 
+					    AND 
+					    o.product_id NOT IN(
+                            SELECT product_id 
+                            FROM 'order' 
+					        WHERE dt > DATE('now', 'start of month', '-1 month', '-1 day') 
+                            AND 
+                            dt < DATE('now', 'start of month'))) 
+					AS o ON o.product_id = product.id
+                    GROUP BY o.product_id"));
+            PrintResult(Demo("Demo 4: Select from past and current month distinct from product table:", @"
+                            SELECT product.name AS 'продукт',
+                                CASE
+	                                WHEN o.dt >= date('now','start of month') THEN 'current'
+	                                WHEN o.dt < date('now','start of month') THEN 'past'
+                                END 'месяц'
+                                FROM product JOIN 
+                                (SELECT o1.product_id, o1.dt FROM 'order' AS o1
+                                	WHERE o1.dt >= DATE('now', 'start of month') 
+                                	AND 
+                                	o1.product_id NOT IN(
+                                    		SELECT product_id 
+                                        	FROM 'order' 
+                                			WHERE dt > DATE('now', 'start of month', '-1 month', '-1 day') 
+                                        	AND 
+                                        	dt < DATE('now', 'start of month')
+                                        )
+                                UNION
+                                SELECT o2.product_id, o2.dt FROM 'order' AS o2
+                                		WHERE o2.dt> DATE('now', 'start of month', '-1 month', '-1 day') 
+                                        AND 
+                                        o2.dt < DATE('now', 'start of month')  
+                                		AND 
+                                		o2.product_id NOT IN(
+                                        		SELECT product_id 
+                                        	    FROM 'order' 
+                                				WHERE dt >= DATE('now', 'start of month')
+                                			)
+                                ) as o on product.id = o.product_id
+                                group by product.name
+                                "));
+            PrintResult(Demo("Demo 5: Select from product table:", "select * from product"));
+
+        }
+
+        private static DataTable Demo(string name, string query) { 
+            Console.WriteLine(name);
+            return Query.ExecuteQuery(query);
+            
         }
 
         private static void LoadDataSet(IEnumerable<Tuple<DateTime, float, int>> readResult)
@@ -59,9 +127,10 @@ namespace YandexContest
         private static IEnumerable<Tuple<DateTime, float, int>> ReadDataFile(string path)
         {
             StreamReader fstr;
+            FileInfo f;
             try
             {
-                var f = new FileInfo(path);
+                f = new FileInfo(path);
                 if (!IsExtentionCorrect(f.Extension))
                 {
                     Console.WriteLine("Wrong file extention");
@@ -113,6 +182,7 @@ namespace YandexContest
                 }
             }
             fstr.Close();
+            f.Delete();
             return result;
         }
 
@@ -128,16 +198,24 @@ namespace YandexContest
             return result;
         }
 
-        public void PrintResult(DataTable result)
+        public static void PrintResult(DataTable result)
         {
-
-            foreach (DataRow resultRow in result.Rows)
+            if (result == null) Console.WriteLine("None");
+            else
             {
-                for (var i = 0; i < result.Columns.Count; i++)
+                foreach (DataColumn column in result.Columns)
                 {
-                    Console.Write(resultRow[i].ToString() + ' ');
+                    Console.Write(column.ColumnName + "  ");
                 }
                 Console.WriteLine();
+                foreach (DataRow resultRow in result.Rows)
+                {
+                    for (var i = 0; i < result.Columns.Count; i++)
+                    {
+                        Console.Write(resultRow[i].ToString() + ' ');
+                    }
+                    Console.WriteLine();
+                }
             }
         }
 

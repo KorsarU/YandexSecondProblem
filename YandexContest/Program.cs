@@ -173,7 +173,15 @@ namespace YandexContest
                 var i = 0;
                 foreach (var s in buf)
                 {
-                    orderList.Add(s.ToLower().Trim(),i);
+                    if(s == "") break;
+                    try
+                    {
+                        orderList.Add(s.ToLower().Trim(), i);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Columns name exception " + e.Message);
+                    }
                     i++;
                 }
             }
@@ -185,7 +193,10 @@ namespace YandexContest
                 if (string.IsNullOrEmpty(readLine)) continue;
                 var buf = readLine.Split('\t');
                 if (buf.Length != orderList.Keys.Count)
+                {
                     Console.WriteLine("Line " + lineNum + ": Miss qunatity of values");
+                    return null;
+                }
                 try
                 {
                     var dt = DateTime.Parse(buf[orderList["dt"]]);
@@ -194,6 +205,10 @@ namespace YandexContest
                     result.Add(Tuple.Create(dt, amount, p_id));
                 }
                 catch (InvalidCastException e)
+                {
+                    Console.WriteLine("Line " + lineNum + ": " + e.Message);
+                }
+                catch (FormatException e)
                 {
                     Console.WriteLine("Line " + lineNum + ": " + e.Message);
                 }
